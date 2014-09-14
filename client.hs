@@ -20,7 +20,6 @@ main = do
     loop
 
   -- Outbound messages
-  --forever $ do
   fix $ \loop -> do
     msgOut <- getLine
     hPutStrLn sHandle (msgOut)

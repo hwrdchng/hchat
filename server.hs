@@ -6,9 +6,6 @@ import Control.Concurrent.Chan
 import Control.Monad
 import Control.Monad.Fix (fix)
 
--- (Connection number, Message)
-type Msg = (Int, String)
-
 -- There is an original master queue that stores all incoming and outgoing
 -- messages. Each socket connection has its own duplicate queue. This is for
 -- thread safety: if a connection pops off a message, that message should
@@ -30,20 +27,20 @@ main = do
         (_, msg) <- readChan msgQueue
         loop
 
-    mainLoop sock msgQueue 0
+    listenLoop sock msgQueue 0
 
 -- Loop that listens for new connections
-mainLoop :: Socket -> Chan Msg -> Int -> IO ()
-mainLoop sock msgQueue connectionNumber = do
+listenLoop :: Socket -> Chan (Int, String) -> Int -> IO ()
+listenLoop sock msgQueue connectionNumber = do
     connection <- accept sock
     putStrLn("New connection: " ++ show(snd(connection)))
 
     -- New thread running each socket connection
     forkIO (runConn connection msgQueue connectionNumber)
 
-    mainLoop sock msgQueue $! connectionNumber+1
+    listenLoop sock msgQueue $! connectionNumber+1
 
-runConn :: (Socket, SockAddr) -> Chan Msg -> Int -> IO ()
+runConn :: (Socket, SockAddr) -> Chan (Int, String) -> Int -> IO ()
 runConn (sock, _) msgQueue connectionNumber = do
     -- Declare pushToChan function
     let pushToChan msg = writeChan msgQueue(connectionNumber, msg)
@@ -71,7 +68,6 @@ runConn (sock, _) msgQueue connectionNumber = do
 
     -- Concurrent loop to push client->server messages for this connection
     -- onto the queue
-    --handle (\(SomeException _) -> return ()) $ fix $ \loop -> do
     fix $ \loop -> do
         -- Get message from client via socket handle
         msg <- hGetLine sHandle
